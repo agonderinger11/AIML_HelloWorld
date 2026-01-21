@@ -460,7 +460,7 @@ function drawSnowflakes() {
 function drawUI() {
     // Instructions
     ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-    ctx.fillRect(10, height - 45, 280, 35);
+    ctx.fillRect(10, height - 45, 350, 35);
     ctx.fillStyle = '#FFFFFF';
     ctx.font = '14px Arial';
     ctx.fillText('Hold SPACE or Click to charge jump, release to jump!', 20, height - 22);
