@@ -29,15 +29,32 @@ class Blob {
         this.y = Math.random();
         this.baseX = this.x;
         this.baseY = this.y;
+        this.vx = 0;
+        this.vy = 0;
         this.radius = 0.2 + Math.random() * 0.3;
         this.speed = 0.0003 + Math.random() * 0.0005;
         this.angle = Math.random() * Math.PI * 2;
         this.drift = 0.15 + Math.random() * 0.2;
         this.phaseX = Math.random() * Math.PI * 2;
         this.phaseY = Math.random() * Math.PI * 2;
+        this.mass = 0.5 + Math.random() * 0.5;
+    }
+
+    applyForce(fx, fy) {
+        this.vx += fx / this.mass;
+        this.vy += fy / this.mass;
     }
 
     update(time, mouseInfluence) {
+        // Apply velocity with friction
+        const friction = 0.98;
+        this.vx *= friction;
+        this.vy *= friction;
+
+        // Apply velocity to base position
+        this.baseX += this.vx;
+        this.baseY += this.vy;
+
         // Organic drifting motion using multiple sine waves
         const drift1 = Math.sin(time * this.speed + this.phaseX) * this.drift;
         const drift2 = Math.cos(time * this.speed * 0.7 + this.phaseY) * this.drift * 0.6;
@@ -46,7 +63,7 @@ class Blob {
         this.x = this.baseX + drift1 + drift3;
         this.y = this.baseY + drift2 + Math.sin(time * this.speed * 0.5) * this.drift * 0.4;
 
-        // Mouse influence - blobs gently move toward or away from cursor
+        // Mouse influence - blobs gently move toward cursor
         const dx = mouseInfluence.x - this.x;
         const dy = mouseInfluence.y - this.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -58,10 +75,10 @@ class Blob {
         }
 
         // Wrap around edges smoothly
-        if (this.x < -0.3) this.baseX += 1.6;
-        if (this.x > 1.3) this.baseX -= 1.6;
-        if (this.y < -0.3) this.baseY += 1.6;
-        if (this.y > 1.3) this.baseY -= 1.6;
+        if (this.baseX < -0.5) this.baseX += 2;
+        if (this.baseX > 1.5) this.baseX -= 2;
+        if (this.baseY < -0.5) this.baseY += 2;
+        if (this.baseY > 1.5) this.baseY -= 2;
     }
 
     draw(ctx, width, height) {
@@ -99,6 +116,56 @@ document.addEventListener('mousemove', (e) => {
     mouseX = e.clientX / width;
     mouseY = e.clientY / height;
 });
+
+// Wind gust on click
+canvas.addEventListener('click', (e) => {
+    const clickX = e.clientX / width;
+    const clickY = e.clientY / height;
+
+    for (const blob of blobs) {
+        const dx = blob.x - clickX;
+        const dy = blob.y - clickY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < 0.001) continue;
+
+        // Force falls off with distance but affects all blobs
+        const maxDist = 1.5;
+        const normalizedDist = Math.min(dist, maxDist) / maxDist;
+        const forceMagnitude = (1 - normalizedDist * normalizedDist) * 0.15;
+
+        // Direction away from click
+        const forceX = (dx / dist) * forceMagnitude;
+        const forceY = (dy / dist) * forceMagnitude;
+
+        blob.applyForce(forceX, forceY);
+    }
+});
+
+// Also support touch for mobile
+canvas.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const clickX = touch.clientX / width;
+    const clickY = touch.clientY / height;
+
+    for (const blob of blobs) {
+        const dx = blob.x - clickX;
+        const dy = blob.y - clickY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < 0.001) continue;
+
+        const maxDist = 1.5;
+        const normalizedDist = Math.min(dist, maxDist) / maxDist;
+        const forceMagnitude = (1 - normalizedDist * normalizedDist) * 0.15;
+
+        const forceX = (dx / dist) * forceMagnitude;
+        const forceY = (dy / dist) * forceMagnitude;
+
+        blob.applyForce(forceX, forceY);
+    }
+}, { passive: false });
 
 function animate() {
     time++;
