@@ -4,17 +4,12 @@ const ctx = canvas.getContext('2d');
 let width, height;
 let time = 0;
 let growthProgress = 0;
-const maxGrowth = 1;
-const growthSpeed = 0.0008;
+let growing = true;
+const growthSpeed = 0.003;
+const shrinkSpeed = 0.004;
 
-// Agave green palette
-const leafColors = [
-    { r: 34, g: 87, b: 46 },     // Dark green
-    { r: 45, g: 106, b: 55 },    // Forest green
-    { r: 56, g: 124, b: 68 },    // Medium green
-    { r: 85, g: 140, b: 90 },    // Sage green
-    { r: 107, g: 142, b: 95 },   // Dusty green
-];
+// Green fractal colors
+const branchColor = { r: 34, g: 197, b: 94 };
 
 function resize() {
     width = canvas.width = window.innerWidth;
@@ -24,158 +19,114 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-// Draw a single agave leaf with pointed tip
-function drawLeaf(cx, cy, angle, length, width, color, opacity) {
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(angle);
+// Recursive fractal tree branch
+function drawBranch(x, y, length, angle, depth, maxDepth, progress) {
+    if (depth > maxDepth || length < 2) return;
 
+    // Calculate how much of this depth level should be drawn
+    const depthProgress = Math.max(0, Math.min(1, (progress * maxDepth - depth + 1)));
+    if (depthProgress <= 0) return;
+
+    const currentLength = length * depthProgress;
+
+    // Calculate end point
+    const endX = x + Math.cos(angle) * currentLength;
+    const endY = y + Math.sin(angle) * currentLength;
+
+    // Branch thickness decreases with depth
+    const thickness = Math.max(1, (maxDepth - depth + 1) * 1.5);
+
+    // Color gets lighter/more vibrant toward tips
+    const depthRatio = depth / maxDepth;
+    const r = branchColor.r + depthRatio * 40;
+    const g = branchColor.g + depthRatio * 30;
+    const b = branchColor.b + depthRatio * 20;
+    const alpha = 0.9 - depthRatio * 0.3;
+
+    // Draw the branch
     ctx.beginPath();
-    ctx.moveTo(0, 0);
-
-    // Left edge curve
-    ctx.quadraticCurveTo(
-        length * 0.3, -width * 0.5,
-        length * 0.85, -width * 0.15
-    );
-
-    // Pointed tip
-    ctx.lineTo(length, 0);
-
-    // Right edge curve
-    ctx.lineTo(length * 0.85, width * 0.15);
-    ctx.quadraticCurveTo(
-        length * 0.3, width * 0.5,
-        0, 0
-    );
-
-    ctx.closePath();
-
-    // Fill with gradient
-    const gradient = ctx.createLinearGradient(0, 0, length, 0);
-    gradient.addColorStop(0, `rgba(${color.r + 20}, ${color.g + 20}, ${color.b + 10}, ${opacity})`);
-    gradient.addColorStop(0.5, `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity})`);
-    gradient.addColorStop(1, `rgba(${color.r - 15}, ${color.g - 10}, ${color.b - 10}, ${opacity * 0.8})`);
-
-    ctx.fillStyle = gradient;
-    ctx.fill();
-
-    // Subtle center line
-    ctx.beginPath();
-    ctx.moveTo(length * 0.1, 0);
-    ctx.lineTo(length * 0.9, 0);
-    ctx.strokeStyle = `rgba(${color.r + 30}, ${color.g + 30}, ${color.b + 20}, ${opacity * 0.3})`;
-    ctx.lineWidth = 1;
+    ctx.moveTo(x, y);
+    ctx.lineTo(endX, endY);
+    ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha * depthProgress})`;
+    ctx.lineWidth = thickness;
+    ctx.lineCap = 'round';
     ctx.stroke();
 
-    ctx.restore();
-}
+    // Add glow effect on main branches
+    if (depth < 4) {
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(endX, endY);
+        ctx.strokeStyle = `rgba(${branchColor.r}, ${branchColor.g}, ${branchColor.b}, ${0.1 * depthProgress})`;
+        ctx.lineWidth = thickness + 6;
+        ctx.stroke();
+    }
 
-// Draw complete agave rosette
-function drawAgave(cx, cy, scale, progress) {
-    const numLeaves = 21;
-    const goldenAngle = Math.PI * (3 - Math.sqrt(5)); // ~137.5 degrees
+    // Only recurse if this branch is sufficiently drawn
+    if (depthProgress > 0.3) {
+        const newLength = length * 0.67;
+        const branchAngle = 0.45 + Math.sin(depth * 0.5) * 0.1; // Slight variation
 
-    // Draw leaves from outside in (so inner leaves overlap outer)
-    for (let i = numLeaves - 1; i >= 0; i--) {
-        const leafProgress = Math.max(0, Math.min(1, (progress * numLeaves - (numLeaves - 1 - i)) / 2));
+        // Left branch
+        drawBranch(endX, endY, newLength, angle - branchAngle, depth + 1, maxDepth, progress);
 
-        if (leafProgress <= 0) continue;
+        // Right branch
+        drawBranch(endX, endY, newLength, angle + branchAngle, depth + 1, maxDepth, progress);
 
-        const angle = i * goldenAngle - Math.PI / 2;
-        const layerRatio = i / numLeaves;
-
-        // Outer leaves are longer and wider
-        const baseLength = scale * (0.4 + layerRatio * 0.6);
-        const length = baseLength * leafProgress;
-        const leafWidth = scale * (0.08 + layerRatio * 0.06) * leafProgress;
-
-        // Leaves curve outward slightly
-        const curveAngle = angle + (1 - layerRatio) * 0.15;
-
-        const color = leafColors[i % leafColors.length];
-        const opacity = 0.7 + layerRatio * 0.3;
-
-        drawLeaf(cx, cy, curveAngle, length, leafWidth, color, opacity * leafProgress);
+        // Sometimes add a middle branch for more complexity
+        if (depth < 6 && depth % 2 === 0) {
+            drawBranch(endX, endY, newLength * 0.8, angle, depth + 1, maxDepth, progress);
+        }
     }
 }
 
-// Draw multiple agaves at different positions
-function drawScene() {
-    // Clear canvas
-    ctx.fillStyle = '#0d1117';
-    ctx.fillRect(0, 0, width, height);
-
-    // Main center agave (grows from center-bottom area)
-    const mainScale = Math.min(width, height) * 0.4;
-    drawAgave(width * 0.5, height * 0.75, mainScale, growthProgress);
-
-    // Smaller side agaves (appear later)
-    const sideProgress = Math.max(0, (growthProgress - 0.3) / 0.7);
-
-    if (sideProgress > 0) {
-        const sideScale = mainScale * 0.5;
-        drawAgave(width * 0.15, height * 0.85, sideScale, sideProgress * 0.8);
-        drawAgave(width * 0.85, height * 0.88, sideScale * 0.7, sideProgress * 0.6);
-    }
-
-    // Even smaller background agaves
-    const bgProgress = Math.max(0, (growthProgress - 0.5) / 0.5);
-    if (bgProgress > 0) {
-        const bgScale = mainScale * 0.25;
-        drawAgave(width * 0.08, height * 0.65, bgScale, bgProgress * 0.5);
-        drawAgave(width * 0.92, height * 0.6, bgScale * 0.8, bgProgress * 0.4);
-    }
+// Draw a complete fractal tree
+function drawFractalTree(x, y, size, progress) {
+    const maxDepth = 12;
+    drawBranch(x, y, size, -Math.PI / 2, 0, maxDepth, progress);
 }
 
 function animate() {
     time++;
 
-    // Grow the fractals
-    if (growthProgress < maxGrowth) {
+    // Update growth/shrink cycle
+    if (growing) {
         growthProgress += growthSpeed;
-        if (growthProgress > maxGrowth) growthProgress = maxGrowth;
+        if (growthProgress >= 1) {
+            growthProgress = 1;
+            growing = false;
+        }
+    } else {
+        growthProgress -= shrinkSpeed;
+        if (growthProgress <= 0) {
+            growthProgress = 0;
+            growing = true;
+        }
     }
 
-    // Add subtle breathing animation once grown
-    const breathe = growthProgress >= maxGrowth ? Math.sin(time * 0.01) * 0.02 : 0;
-    const displayProgress = growthProgress + breathe;
-
-    // Clear and draw
+    // Clear canvas
     ctx.fillStyle = '#0d1117';
     ctx.fillRect(0, 0, width, height);
 
-    // Main center agave
-    const mainScale = Math.min(width, height) * 0.4;
-    drawAgave(width * 0.5, height * 0.75, mainScale, displayProgress);
+    // Draw main fractal tree from bottom center
+    const treeHeight = Math.min(width, height) * 0.35;
+    drawFractalTree(width * 0.5, height * 0.95, treeHeight, growthProgress);
 
-    // Side agaves
-    const sideProgress = Math.max(0, (displayProgress - 0.3) / 0.7);
+    // Draw smaller trees on sides (slightly delayed)
+    const sideProgress = Math.max(0, growthProgress - 0.15) / 0.85;
     if (sideProgress > 0) {
-        const sideScale = mainScale * 0.5;
-        drawAgave(width * 0.15, height * 0.85, sideScale, sideProgress * 0.8);
-        drawAgave(width * 0.85, height * 0.88, sideScale * 0.7, sideProgress * 0.6);
+        drawFractalTree(width * 0.15, height * 0.98, treeHeight * 0.5, sideProgress);
+        drawFractalTree(width * 0.85, height * 0.98, treeHeight * 0.45, sideProgress * 0.9);
     }
 
-    // Background agaves
-    const bgProgress = Math.max(0, (displayProgress - 0.5) / 0.5);
+    // Tiny background trees
+    const bgProgress = Math.max(0, growthProgress - 0.3) / 0.7;
     if (bgProgress > 0) {
-        const bgScale = mainScale * 0.25;
-        drawAgave(width * 0.08, height * 0.65, bgScale, bgProgress * 0.5);
-        drawAgave(width * 0.92, height * 0.6, bgScale * 0.8, bgProgress * 0.4);
+        drawFractalTree(width * 0.3, height * 0.99, treeHeight * 0.25, bgProgress * 0.7);
+        drawFractalTree(width * 0.7, height * 0.99, treeHeight * 0.2, bgProgress * 0.6);
     }
 
     requestAnimationFrame(animate);
 }
-
-// Click to reset growth animation
-canvas.addEventListener('click', () => {
-    growthProgress = 0;
-});
-
-canvas.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    growthProgress = 0;
-}, { passive: false });
 
 animate();
