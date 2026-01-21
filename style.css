@@ -7,22 +7,69 @@
 :root {
     --mouse-x: 50%;
     --mouse-y: 50%;
+    --color-1: #667eea;
+    --color-2: #764ba2;
+    --color-3: #f093fb;
+    --color-4: #f5576c;
+    --color-5: #4facfe;
+    --color-6: #00f2fe;
+    --color-7: #43e97b;
+    --color-8: #fa709a;
 }
 
 body {
     min-height: 100vh;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background:
-        radial-gradient(
-            circle at var(--mouse-x) var(--mouse-y),
-            #667eea 0%,
-            #764ba2 25%,
-            #f093fb 50%,
-            #f5576c 75%,
-            #4facfe 100%
-        );
-    background-size: 200% 200%;
-    transition: background 0.1s ease-out;
+    background: linear-gradient(
+        135deg,
+        var(--color-1),
+        var(--color-2),
+        var(--color-3),
+        var(--color-4),
+        var(--color-5),
+        var(--color-6),
+        var(--color-7),
+        var(--color-8),
+        var(--color-1)
+    );
+    background-size: 400% 400%;
+    animation: gradientFlow 15s ease infinite;
+    position: relative;
+    overflow: hidden;
+}
+
+body::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(
+        circle at var(--mouse-x) var(--mouse-y),
+        rgba(255, 255, 255, 0.15) 0%,
+        transparent 50%
+    );
+    pointer-events: none;
+    transition: background 0.3s ease-out;
+}
+
+@keyframes gradientFlow {
+    0% {
+        background-position: 0% 50%;
+    }
+    25% {
+        background-position: 50% 100%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    75% {
+        background-position: 50% 0%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
 }
 
 .container {
@@ -33,6 +80,8 @@ body {
     align-items: center;
     text-align: center;
     padding: 2rem;
+    position: relative;
+    z-index: 1;
 }
 
 h1 {
